@@ -48,6 +48,21 @@
             </h1>
         </div>
 
+        <!-- Target Carbs Input Section -->
+        <div class="flex items-center justify-between space-x-4 mb-6 p-4 rounded-xl bg-gray-800 border border-gray-700">
+            <label for="carbs-goal-input" class="text-white font-bold text-lg">Target Carbs:</label>
+            <div class="flex items-center space-x-2 w-1/2">
+                <input
+                    id="carbs-goal-input"
+                    type="number"
+                    min="0"
+                    placeholder="Enter goal"
+                    class="flex-grow p-2 text-center bg-gray-700 border-2 border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
+                />
+                <span class="text-gray-400 text-right">g</span>
+            </div>
+        </div>
+
         <!-- Input section for ingredients -->
         <div id="ingredients-container" class="space-y-4">
             <!-- Ingredient input fields will be dynamically added here by JavaScript -->
@@ -95,6 +110,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
+            // The data from the original CSV file. These values are the totals for the default recipe.
             const ingredientsData = {
                 "Maltodextrin": { weight: 96, carbs: 89.6, calories: 384 },
                 "Fructose": { weight: 64, carbs: 64, calories: 240 },
@@ -102,17 +118,23 @@
                 "Sodium Alginate": { weight: 2, carbs: 0.38, calories: 4 },
                 "Water": { weight: 110, carbs: 0, calories: 0 }
             };
+            
+            // Store the default weights to allow for resetting the calculator
             const defaultWeights = {};
+            let initialTotalCarbs = 0;
             for (const ingredient in ingredientsData) {
                 defaultWeights[ingredient] = ingredientsData[ingredient].weight;
+                initialTotalCarbs += ingredientsData[ingredient].carbs;
             }
 
+            // Get references to key DOM elements
             const ingredientsContainer = document.getElementById('ingredients-container');
             const totalWeightSpan = document.getElementById('total-weight');
             const totalCarbsSpan = document.getElementById('total-carbs');
             const totalCaloriesSpan = document.getElementById('total-calories');
             const chartCanvas = document.getElementById('nutrition-chart');
             const resetButton = document.getElementById('reset-button');
+            const carbsGoalInput = document.getElementById('carbs-goal-input');
 
             let chartInstance = null;
             let currentWeights = { ...defaultWeights };
@@ -143,6 +165,30 @@
                         updateCalculations();
                     });
                 }
+            }
+
+            // Function to update ingredient weights based on a target carb goal
+            function updateWeightsFromCarbsGoal() {
+                const targetCarbs = parseFloat(carbsGoalInput.value);
+                if (isNaN(targetCarbs) || targetCarbs < 0 || initialTotalCarbs === 0) {
+                    // Reset to default if input is invalid or initial carbs are zero
+                    resetInputs();
+                    return;
+                }
+                
+                // Calculate the scaling factor based on the target carbs
+                const scalingFactor = targetCarbs / initialTotalCarbs;
+
+                // Update the current weights and the input fields
+                for (const ingredient in defaultWeights) {
+                    const newWeight = defaultWeights[ingredient] * scalingFactor;
+                    currentWeights[ingredient] = newWeight;
+                    const inputElement = document.getElementById(`${ingredient}-input`);
+                    if (inputElement) {
+                        inputElement.value = newWeight.toFixed(1);
+                    }
+                }
+                updateCalculations();
             }
 
             // Function to update all calculations and the chart
@@ -217,14 +263,17 @@
                         input.value = currentWeights[ingredient];
                     }
                 }
+                // Clear the target carbs input as well
+                carbsGoalInput.value = '';
                 updateCalculations();
             }
 
             // Initialize the app
             createInputFields();
             updateCalculations();
-
-            // Add event listener for the reset button
+            
+            // Add event listeners for the new functionality
+            carbsGoalInput.addEventListener('input', updateWeightsFromCarbsGoal);
             resetButton.addEventListener('click', resetInputs);
         });
     </script>
