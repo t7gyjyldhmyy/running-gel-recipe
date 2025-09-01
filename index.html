@@ -3,114 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Running Gel Calculator</title>
-    <!-- Use Tailwind CSS for a sleek, modern look -->
+    <title>DIY Sports Gel Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        /* Custom styles for the app's font and layout */
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark background for a sleek look */
+        }
+        .gel-card {
+            background-color: #2d3748; /* Darker card background */
+            color: #e2e8f0; /* Light text color */
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 </head>
-<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen p-4">
-    <div class="bg-gray-800 p-8 rounded-2xl shadow-xl max-w-lg w-full">
-        <!-- Main title and description -->
-        <h1 class="text-3xl font-bold text-center text-teal-400 mb-2">Marathon Fuel Calculator</h1>
-        <p class="text-center text-gray-400 mb-8">
-            Enter your target carbohydrate amount and get the perfect running gel recipe, scaled to your needs.
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="gel-card w-full max-w-lg mx-auto">
+        <h1 class="text-3xl font-bold text-center text-white mb-6">DIY Sports Gel Calculator</h1>
+
+        <div id="ingredients-container" class="space-y-4">
+            </div>
+
+        <div class="my-6 border-b border-gray-600"></div>
+
+        <div class="text-lg font-semibold space-y-2 mb-8">
+            <p class="flex justify-between items-center">
+                <span>Total Weight:</span>
+                <span id="total-weight" class="font-bold text-gray-300">0 g</span>
+            </p>
+            <p class="flex justify-between items-center">
+                <span>Total Carbs:</span>
+                <span id="total-carbs" class="font-bold text-gray-300">0 g</span>
+            </p>
+            <p class="flex justify-between items-center">
+                <span>Total Calories:</span>
+                <span id="total-calories" class="font-bold text-gray-300">0 kcal</span>
+            </p>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-bold text-center text-white mb-4">Nutritional Breakdown</h2>
+            <canvas id="nutrition-chart"></canvas>
+        </div>
+
+        <p class="text-xs text-gray-400 text-center mt-4">
+            Disclaimer: This calculator is for informational purposes only. Nutritional values may vary. Consult a professional before making dietary changes.
         </p>
-
-        <!-- Input section -->
-        <div class="flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4 mb-8">
-            <div class="w-full">
-                <label for="carbs-input" class="block text-sm font-medium text-gray-300 mb-1">
-                    Target Carbs (grams)
-                </label>
-                <input type="number" id="carbs-input" placeholder="e.g., 60"
-                       class="w-full bg-gray-700 text-white border-none focus:ring-2 focus:ring-teal-500 rounded-lg py-2.5 px-4 shadow-sm">
-            </div>
-            <button id="calculate-btn"
-                    class="w-full md:w-auto bg-teal-500 hover:bg-teal-600 text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-colors duration-200 ease-in-out transform hover:scale-105 active:scale-95">
-                Calculate Recipe
-            </button>
-        </div>
-
-        <!-- Recipe output section -->
-        <div id="recipe-output" class="hidden">
-            <h2 class="text-xl font-bold text-center text-gray-200 mb-4">Your Custom Gel Recipe</h2>
-            <div id="ingredient-list" class="space-y-3">
-                <!-- Ingredients will be dynamically added here -->
-            </div>
-            <p id="total-carbs-output" class="text-sm text-gray-400 text-center mt-6"></p>
-        </div>
-
-        <!-- Error message section -->
-        <div id="error-message" class="text-red-400 text-sm text-center mt-4 hidden">
-            Please enter a valid number for the target carbs.
-        </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const carbsInput = document.getElementById('carbs-input');
-            const calculateBtn = document.getElementById('calculate-btn');
-            const recipeOutput = document.getElementById('recipe-output');
-            const ingredientList = document.getElementById('ingredient-list');
-            const totalCarbsOutput = document.getElementById('total-carbs-output');
-            const errorMessage = document.getElementById('error-message');
 
-            // Original recipe data based on the provided CSV file
-            // Total Carbs in the base recipe: 156.23g
-            const baseRecipe = {
-                'Maltodextrin': { weight: 96, carbs: 89.6 },
-                'Fructose': { weight: 64, carbs: 64 },
-                'Pectin': { weight: 2.5, carbs: 2.25 },
-                'Sodium Alginate': { weight: 2, carbs: 0.38 },
-                'Water': { weight: 110, carbs: 0 }
+            // The data from the CSV file, converted to a JavaScript object for easy use.
+            const ingredientsData = {
+                "Maltodextrin": { weight: 96, carbs: 0.9333, calories: 4 },
+                "Fructose": { weight: 64, carbs: 1, calories: 3.75 },
+                "Pectin": { weight: 2.5, carbs: 0.9, calories: 3.26 },
+                "Sodium Alginate": { weight: 2, carbs: 0.19, calories: 2 },
+                "Water": { weight: 110, carbs: 0, calories: 0 }
             };
 
-            const totalBaseCarbs = 156.23;
+            // Get references to key DOM elements
+            const ingredientsContainer = document.getElementById('ingredients-container');
+            const totalWeightSpan = document.getElementById('total-weight');
+            const totalCarbsSpan = document.getElementById('total-carbs');
+            const totalCaloriesSpan = document.getElementById('total-calories');
+            const chartCanvas = document.getElementById('nutrition-chart');
 
-            calculateBtn.addEventListener('click', () => {
-                const targetCarbs = parseFloat(carbsInput.value);
+            let chartInstance = null;
+            let currentWeights = {};
 
-                // Validation to ensure a valid number is entered
-                if (isNaN(targetCarbs) || targetCarbs <= 0) {
-                    errorMessage.classList.remove('hidden');
-                    recipeOutput.classList.add('hidden');
-                    return;
+            // Function to dynamically create input fields for each ingredient
+            function createInputFields() {
+                for (const ingredient in ingredientsData) {
+                    const data = ingredientsData[ingredient];
+                    currentWeights[ingredient] = data.weight; // Initialize with default weight
+
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between space-x-4';
+
+                    div.innerHTML = `
+                        <label for="${ingredient}-input" class="text-white w-2/5 font-medium">${ingredient}:</label>
+                        <input
+                            id="${ingredient}-input"
+                            type="number"
+                            value="${data.weight}"
+                            min="0"
+                            class="flex-grow w-1/4 p-2 text-center bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                        />
+                        <span class="text-gray-400 w-1/4 text-right">g</span>
+                    `;
+
+                    ingredientsContainer.appendChild(div);
+
+                    // Add an event listener to each input field
+                    const inputElement = document.getElementById(`${ingredient}-input`);
+                    inputElement.addEventListener('input', (event) => {
+                        const newWeight = parseFloat(event.target.value) || 0;
+                        currentWeights[ingredient] = newWeight;
+                        updateCalculations();
+                    });
+                }
+            }
+
+            // Function to update all calculations and the chart
+            function updateCalculations() {
+                let totalWeight = 0;
+                let totalCarbs = 0;
+                let totalCalories = 0;
+
+                for (const ingredient in currentWeights) {
+                    const weight = currentWeights[ingredient];
+                    const data = ingredientsData[ingredient];
+                    
+                    // The original CSV data showed the last two columns as a percentage, which implies a ratio.
+                    // To make this a functional calculator, we'll use a standard nutritional calculation.
+                    // This assumes the values in the CSV are per 100g.
+                    // Let's re-parse the CSV data with a more logical structure.
+                    // Re-calibrated based on standard nutritional data per gram:
+                    // Maltodextrin: 4 kcal/g, 1g carbs/g
+                    // Fructose: 4 kcal/g, 1g carbs/g
+                    // Pectin: ~3 kcal/g, ~0.9g carbs/g
+                    // Sodium Alginate: ~2 kcal/g, ~0.2g carbs/g
+                    // Let's use the provided raw data instead for the most accurate calculation given the input.
+                    
+                    // The provided values seem to be totals for the initial recipe, not per gram.
+                    // Let's recalculate the per-gram values from the CSV.
+                    // Carbs per gram = Carbs(g) / Weight(g)
+                    // Calories per gram = Calories(kcal) / Weight(g)
+                    const carbsPerGram = data.carbs / data.weight;
+                    const caloriesPerGram = data.calories / data.weight;
+
+                    totalWeight += weight;
+                    totalCarbs += weight * data.carbs;
+                    totalCalories += weight * data.calories;
                 }
 
-                // Hide error message on successful input
-                errorMessage.classList.add('hidden');
-                
-                // Calculate the scaling factor
-                const scaleFactor = targetCarbs / totalBaseCarbs;
+                // Update the UI with the new totals
+                totalWeightSpan.innerText = `${totalWeight.toFixed(1)} g`;
+                totalCarbsSpan.innerText = `${totalCarbs.toFixed(1)} g`;
+                totalCaloriesSpan.innerText = `${totalCalories.toFixed(1)} kcal`;
 
-                // Clear previous results
-                ingredientList.innerHTML = '';
+                // Update the chart
+                const chartData = {
+                    labels: ['Carbohydrates', 'Calories'],
+                    datasets: [{
+                        label: 'Total Nutritional Value',
+                        data: [totalCarbs, totalCalories],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.6)',
+                            'rgba(54, 162, 235, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                };
 
-                // Calculate and display new ingredient amounts
-                for (const ingredient in baseRecipe) {
-                    if (baseRecipe.hasOwnProperty(ingredient)) {
-                        const newWeight = baseRecipe[ingredient].weight * scaleFactor;
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = 'flex justify-between items-center bg-gray-700 rounded-lg p-3 shadow';
-                        itemDiv.innerHTML = `
-                            <span class="text-gray-300">${ingredient}:</span>
-                            <span class="text-lg font-semibold text-teal-300">
-                                ${newWeight.toFixed(2)} g
-                            </span>
-                        `;
-                        ingredientList.appendChild(itemDiv);
-                    }
+                // Create or update the chart
+                if (chartInstance) {
+                    chartInstance.data = chartData;
+                    chartInstance.update();
+                } else {
+                    chartInstance = new Chart(chartCanvas, {
+                        type: 'doughnut',
+                        data: chartData,
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    labels: {
+                                        color: '#e2e8f0'
+                                    }
+                                }
+                            }
+                        }
+                    });
                 }
-
-                // Display the final total carbs and make the output section visible
-                totalCarbsOutput.textContent = `Recipe scaled for a total of ${targetCarbs.toFixed(2)} grams of carbs.`;
-                recipeOutput.classList.remove('hidden');
-            });
+            }
+            
+            // Initialize the app
+            createInputFields();
+            updateCalculations();
         });
     </script>
 </body>
