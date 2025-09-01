@@ -271,6 +271,10 @@
         // Function to perform the calculation and update the UI
         function calculateAndDisplay() {
             console.log("Calculating recipe...");
+
+            // FIX: Force a view switch to the calculator to ensure the user sees the result.
+            showView('calculator');
+
             const desiredCarbs = parseFloat(carbsInput.value);
 
             // Input validation: ensure the input is a positive number
