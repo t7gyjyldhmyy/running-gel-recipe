@@ -42,6 +42,11 @@
         .hidden-content {
             display: none;
         }
+
+        /* Style for the active button in the view switcher */
+        .view-btn-active {
+            @apply bg-blue-500 text-white;
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
@@ -103,12 +108,22 @@
 
         // Function to switch between calculator and logbook views
         function showView(view) {
+            // Remove active classes from both buttons
+            showCalculatorBtn.classList.remove('view-btn-active', 'bg-blue-500', 'text-white');
+            showLogsBtn.classList.remove('view-btn-active', 'bg-blue-500', 'text-white');
+            showCalculatorBtn.classList.add('bg-gray-200', 'text-gray-800');
+            showLogsBtn.classList.add('bg-gray-200', 'text-gray-800');
+
             if (view === 'calculator') {
                 mainContainer.classList.remove('hidden-content');
                 logbookContainer.classList.add('hidden-content');
+                showCalculatorBtn.classList.add('view-btn-active');
+                showCalculatorBtn.classList.remove('bg-gray-200', 'text-gray-800');
             } else {
                 mainContainer.classList.add('hidden-content');
                 logbookContainer.classList.remove('hidden-content');
+                showLogsBtn.classList.add('view-btn-active');
+                showLogsBtn.classList.remove('bg-gray-200', 'text-gray-800');
             }
         }
 
@@ -255,6 +270,7 @@
 
         // Function to perform the calculation and update the UI
         function calculateAndDisplay() {
+            console.log("Calculating recipe...");
             const desiredCarbs = parseFloat(carbsInput.value);
 
             // Input validation: ensure the input is a positive number
@@ -340,7 +356,7 @@
         // Run the calculation on initial page load to show the default recipe
         calculateAndDisplay();
 
-        // Ensure the logbook is initially hidden
+        // Ensure the logbook is initially hidden and set the active button
         showView('calculator');
 
     </script>
@@ -355,7 +371,7 @@
 
     <!-- UI for Switching between views -->
     <div class="fixed top-0 left-0 right-0 z-50 p-4 flex justify-center space-x-4 bg-white/70 backdrop-blur-sm rounded-b-lg shadow-md">
-        <button id="show-calculator-btn" class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-500 text-white shadow hover:bg-blue-600 transition-colors">
+        <button id="show-calculator-btn" class="px-4 py-2 text-sm font-semibold rounded-lg view-btn-active">
             Calculator
         </button>
         <button id="show-logs-btn" class="px-4 py-2 text-sm font-semibold rounded-lg bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors">
