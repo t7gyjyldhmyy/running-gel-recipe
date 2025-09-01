@@ -14,6 +14,29 @@
             font-family: 'Inter', sans-serif;
             @apply bg-gray-100 text-gray-800;
         }
+
+        /* Define keyframe animation for the results pop-in effect */
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        /* Apply the animation class */
+        .results-animation {
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        /* Add dynamic button press effect */
+        #calculate-btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
@@ -139,6 +162,14 @@
 
                 // Update the results area with all the generated HTML
                 resultsArea.innerHTML = calculatedRecipeHtml + totalsHtml;
+
+                // Add animation class to trigger the effect
+                resultsArea.classList.add('results-animation');
+
+                // Remove the class after the animation to allow it to be re-triggered
+                setTimeout(() => {
+                    resultsArea.classList.remove('results-animation');
+                }, 300);
             }
 
             // Event listeners
