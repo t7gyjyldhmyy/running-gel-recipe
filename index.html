@@ -66,303 +66,316 @@
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        let db, auth;
-        let userId;
-        let logsUnsubscribe;
+        // This ensures the script only runs after the entire HTML document is loaded,
+        // preventing issues where elements are not found.
+        window.onload = function() {
+            let db, auth;
+            let userId;
+            let logsUnsubscribe;
 
-        // Message box elements
-        const messageModal = document.getElementById('message-modal');
-        const messageContent = document.getElementById('message-content');
-        const closeModalBtn = document.getElementById('close-modal-btn');
+            // Message box elements
+            const messageModal = document.getElementById('message-modal');
+            const messageContent = document.getElementById('message-content');
+            const closeModalBtn = document.getElementById('close-modal-btn');
 
-        // Function to show a custom message modal instead of alert()
-        function showMessageModal(message) {
-            messageContent.textContent = message;
-            messageModal.classList.remove('hidden');
-        }
-
-        closeModalBtn.addEventListener('click', () => {
-            messageModal.classList.add('hidden');
-        });
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-
-        // UI elements
-        const mainContainer = document.getElementById('main-container');
-        const logbookContainer = document.getElementById('logbook-container');
-        const showCalculatorBtn = document.getElementById('show-calculator-btn');
-        const showLogsBtn = document.getElementById('show-logs-btn');
-        const userIdDisplay = document.getElementById('user-id-display');
-        const logCarbsInput = document.getElementById('log-carbs-input');
-        const feedbackTextarea = document.getElementById('feedback-textarea');
-        const saveLogBtn = document.getElementById('save-log-btn');
-        const logsList = document.getElementById('logs-list');
-        const logStatus = document.getElementById('log-status');
-        const totalCarbsToLog = document.getElementById('total-carbs-to-log');
-
-        // State to hold calculated totals
-        let lastCalculatedCarbs = 0;
-
-        // Function to switch between calculator and logbook views
-        function showView(view) {
-            // Remove active classes from both buttons
-            showCalculatorBtn.classList.remove('view-btn-active', 'bg-blue-500', 'text-white');
-            showLogsBtn.classList.remove('view-btn-active', 'bg-blue-500', 'text-white');
-            showCalculatorBtn.classList.add('bg-gray-200', 'text-gray-800');
-            showLogsBtn.classList.add('bg-gray-200', 'text-gray-800');
-
-            if (view === 'calculator') {
-                mainContainer.classList.remove('hidden-content');
-                logbookContainer.classList.add('hidden-content');
-                showCalculatorBtn.classList.add('view-btn-active');
-                showCalculatorBtn.classList.remove('bg-gray-200', 'text-gray-800');
-            } else {
-                mainContainer.classList.add('hidden-content');
-                logbookContainer.classList.remove('hidden-content');
-                showLogsBtn.classList.add('view-btn-active');
-                showLogsBtn.classList.remove('bg-gray-200', 'text-gray-800');
-            }
-        }
-
-        showCalculatorBtn.addEventListener('click', () => showView('calculator'));
-        showLogsBtn.addEventListener('click', () => showView('logs'));
-
-        // Listen for authentication state changes
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                userIdDisplay.textContent = `User ID: ${userId}`;
-                userIdDisplay.classList.remove('hidden');
-                // Fetch and display logs for the authenticated user
-                fetchAndDisplayLogs();
-            } else {
-                // If no user is signed in, sign in using the custom token or anonymously
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Firebase Auth Error:", error);
-                    showMessageModal("Authentication failed. Please refresh the page.");
-                }
-            }
-        });
-
-        // Function to fetch and display logs
-        function fetchAndDisplayLogs() {
-            if (!userId) {
-                console.warn("User ID not available yet. Skipping log fetch.");
-                return;
+            // Function to show a custom message modal instead of alert()
+            function showMessageModal(message) {
+                messageContent.textContent = message;
+                messageModal.classList.remove('hidden');
             }
 
-            const logsCollectionPath = `/artifacts/${appId}/users/${userId}/run_logs`;
-            const q = query(collection(db, logsCollectionPath));
-
-            // Use onSnapshot for real-time updates
-            logsUnsubscribe = onSnapshot(q, (querySnapshot) => {
-                const logs = [];
-                querySnapshot.forEach((doc) => {
-                    logs.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Sort logs by timestamp in descending order (newest first)
-                logs.sort((a, b) => b.timestamp.toDate() - a.timestamp.toDate());
-
-                logsList.innerHTML = '';
-                if (logs.length === 0) {
-                    logsList.innerHTML = `<p class="text-gray-500 text-center py-4">No logs found. Start by calculating a recipe and logging your run!</p>`;
-                } else {
-                    logs.forEach(log => {
-                        const date = log.timestamp.toDate().toLocaleDateString();
-                        const time = log.timestamp.toDate().toLocaleTimeString();
-                        const logHtml = `
-                            <div class="bg-gray-50 rounded-lg p-4 shadow-sm mb-4">
-                                <p class="text-sm text-gray-500">${date} at ${time}</p>
-                                <p class="text-lg font-bold text-gray-900">${log.carbs.toFixed(1)} g Carbs</p>
-                                <p class="text-sm text-gray-700">${log.feedback}</p>
-                            </div>
-                        `;
-                        logsList.innerHTML += logHtml;
-                    });
-                }
-            }, (error) => {
-                console.error("Failed to fetch logs:", error);
-                showMessageModal("Could not retrieve your logs. Please try again.");
+            closeModalBtn.addEventListener('click', () => {
+                messageModal.classList.add('hidden');
             });
-        }
 
-        // Function to save a log entry to Firestore
-        async function saveLog() {
-            if (!userId) {
-                showMessageModal("Please wait, the app is still authenticating...");
-                return;
-            }
-
-            const carbs = parseFloat(logCarbsInput.value);
-            const feedback = feedbackTextarea.value.trim();
-
-            if (isNaN(carbs) || carbs <= 0) {
-                showMessageModal("Please enter a valid amount of carbs to log.");
-                return;
-            }
-
-            logStatus.textContent = 'Saving log...';
-            logStatus.classList.remove('hidden', 'text-green-500', 'text-red-500');
-
+            // Initialize Firebase
             try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                showMessageModal("Could not connect to the database. Please check your configuration.");
+            }
+
+            // UI elements
+            const mainContainer = document.getElementById('main-container');
+            const logbookContainer = document.getElementById('logbook-container');
+            const showCalculatorBtn = document.getElementById('show-calculator-btn');
+            const showLogsBtn = document.getElementById('show-logs-btn');
+            const userIdDisplay = document.getElementById('user-id-display');
+            const logCarbsInput = document.getElementById('log-carbs-input');
+            const feedbackTextarea = document.getElementById('feedback-textarea');
+            const saveLogBtn = document.getElementById('save-log-btn');
+            const logsList = document.getElementById('logs-list');
+            const logStatus = document.getElementById('log-status');
+            const totalCarbsToLog = document.getElementById('total-carbs-to-log');
+
+            // State to hold calculated totals
+            let lastCalculatedCarbs = 0;
+
+            // Function to switch between calculator and logbook views
+            function showView(view) {
+                // Remove active classes from both buttons
+                showCalculatorBtn.classList.remove('view-btn-active', 'bg-blue-500', 'text-white');
+                showLogsBtn.classList.remove('view-btn-active', 'bg-blue-500', 'text-white');
+                showCalculatorBtn.classList.add('bg-gray-200', 'text-gray-800');
+                showLogsBtn.classList.add('bg-gray-200', 'text-gray-800');
+
+                if (view === 'calculator') {
+                    mainContainer.classList.remove('hidden-content');
+                    logbookContainer.classList.add('hidden-content');
+                    showCalculatorBtn.classList.add('view-btn-active');
+                    showCalculatorBtn.classList.remove('bg-gray-200', 'text-gray-800');
+                } else {
+                    mainContainer.classList.add('hidden-content');
+                    logbookContainer.classList.remove('hidden-content');
+                    showLogsBtn.classList.add('view-btn-active');
+                    showLogsBtn.classList.remove('bg-gray-200', 'text-gray-800');
+                }
+            }
+
+            // Listen for authentication state changes
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    userIdDisplay.textContent = `User ID: ${userId}`;
+                    userIdDisplay.classList.remove('hidden');
+                    // Fetch and display logs for the authenticated user
+                    fetchAndDisplayLogs();
+                } else {
+                    // If no user is signed in, sign in using the custom token or anonymously
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Firebase Auth Error:", error);
+                        showMessageModal("Authentication failed. Please refresh the page.");
+                    }
+                }
+            });
+
+            // Function to fetch and display logs
+            function fetchAndDisplayLogs() {
+                if (!userId) {
+                    console.warn("User ID not available yet. Skipping log fetch.");
+                    return;
+                }
+
                 const logsCollectionPath = `/artifacts/${appId}/users/${userId}/run_logs`;
-                await addDoc(collection(db, logsCollectionPath), {
-                    carbs: carbs,
-                    feedback: feedback,
-                    timestamp: Timestamp.now(),
-                    userId: userId
+                const q = query(collection(db, logsCollectionPath));
+
+                // Use onSnapshot for real-time updates
+                logsUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                    const logs = [];
+                    querySnapshot.forEach((doc) => {
+                        logs.push({ id: doc.id, ...doc.data() });
+                    });
+
+                    // Sort logs by timestamp in descending order (newest first)
+                    logs.sort((a, b) => b.timestamp.toDate() - a.timestamp.toDate());
+
+                    logsList.innerHTML = '';
+                    if (logs.length === 0) {
+                        logsList.innerHTML = `<p class="text-gray-500 text-center py-4">No logs found. Start by calculating a recipe and logging your run!</p>`;
+                    } else {
+                        logs.forEach(log => {
+                            const date = log.timestamp.toDate().toLocaleDateString();
+                            const time = log.timestamp.toDate().toLocaleTimeString();
+                            const logHtml = `
+                                <div class="bg-gray-50 rounded-lg p-4 shadow-sm mb-4">
+                                    <p class="text-sm text-gray-500">${date} at ${time}</p>
+                                    <p class="text-lg font-bold text-gray-900">${log.carbs.toFixed(1)} g Carbs</p>
+                                    <p class="text-sm text-gray-700">${log.feedback}</p>
+                                </div>
+                            `;
+                            logsList.innerHTML += logHtml;
+                        });
+                    }
+                }, (error) => {
+                    console.error("Failed to fetch logs:", error);
+                    showMessageModal("Could not retrieve your logs. Please try again.");
                 });
-                logStatus.textContent = 'Log saved successfully!';
-                logStatus.classList.remove('text-red-500');
-                logStatus.classList.add('text-green-500');
-                
-                // Clear the form for the next entry
-                feedbackTextarea.value = '';
-
-                setTimeout(() => {
-                    logStatus.classList.add('hidden');
-                }, 3000);
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                logStatus.textContent = 'Error saving log. Please try again.';
-                logStatus.classList.remove('text-green-500');
-                logStatus.classList.add('text-red-500');
-            }
-        }
-
-        // --- Start of Existing Calculator Logic ---
-
-        // Define the base recipe data from the provided CSV file
-        const baseRecipe = [
-            { name: 'Maltodextrin', weight: 96, carbs: 89.6, calories: 384 },
-            { name: 'Fructose', weight: 64, carbs: 64, calories: 240 },
-            { name: 'Pectin', weight: 2.5, carbs: 2.25, calories: 8.15 },
-            { name: 'Sodium Alginate', weight: 2, carbs: 0.38, calories: 4 },
-            { name: 'Water', weight: 110, carbs: 0, calories: 0 },
-        ];
-
-        // Calculate the total carbs of the base recipe for scaling
-        const baseCarbTotal = baseRecipe.reduce((sum, item) => sum + item.carbs, 0);
-
-        // Get references to DOM elements
-        const carbsInput = document.getElementById('carbs-input');
-        const calculateBtn = document.getElementById('calculate-btn');
-        const resultsArea = document.getElementById('results-area');
-        const messageArea = document.getElementById('message-area');
-
-        // Function to display messages to the user
-        function showMessage(msg, isError = true) {
-            messageArea.textContent = msg;
-            messageArea.classList.toggle('text-red-500', isError);
-            messageArea.classList.toggle('text-green-500', !isError);
-            messageArea.classList.remove('hidden');
-        }
-
-        // Function to perform the calculation and update the UI
-        function calculateAndDisplay() {
-            console.log("Calculating recipe...");
-
-            // FIX: Force a view switch to the calculator to ensure the user sees the result.
-            showView('calculator');
-
-            const desiredCarbs = parseFloat(carbsInput.value);
-
-            // Input validation: ensure the input is a positive number
-            if (isNaN(desiredCarbs) || desiredCarbs <= 0) {
-                showMessage('Please enter a valid number greater than 0.');
-                resultsArea.innerHTML = '';
-                return;
             }
 
-            // Hide any previous messages
-            messageArea.classList.add('hidden');
+            // Function to save a log entry to Firestore
+            async function saveLog() {
+                if (!userId) {
+                    showMessageModal("Please wait, the app is still authenticating...");
+                    return;
+                }
 
-            // Calculate the scaling factor based on the desired total carbs
-            const scaleFactor = desiredCarbs / baseCarbTotal;
+                const carbs = parseFloat(logCarbsInput.value);
+                const feedback = feedbackTextarea.value.trim();
 
-            let calculatedRecipeHtml = '';
-            let totalWeight = 0;
-            let totalCarbs = 0;
-            let totalCalories = 0;
+                if (isNaN(carbs) || carbs <= 0) {
+                    showMessageModal("Please enter a valid amount of carbs to log.");
+                    return;
+                }
 
-            // Loop through each ingredient, calculate new values, and build the display HTML
-            baseRecipe.forEach(item => {
-                const newWeight = item.weight * scaleFactor;
-                const newCarbs = item.carbs * scaleFactor;
-                const newCalories = item.calories * scaleFactor;
+                logStatus.textContent = 'Saving log...';
+                logStatus.classList.remove('hidden', 'text-green-500', 'text-red-500');
 
-                totalWeight += newWeight;
-                totalCarbs += newCarbs;
-                totalCalories += newCalories;
+                try {
+                    const logsCollectionPath = `/artifacts/${appId}/users/${userId}/run_logs`;
+                    await addDoc(collection(db, logsCollectionPath), {
+                        carbs: carbs,
+                        feedback: feedback,
+                        timestamp: Timestamp.now(),
+                        userId: userId
+                    });
+                    logStatus.textContent = 'Log saved successfully!';
+                    logStatus.classList.remove('text-red-500');
+                    logStatus.classList.add('text-green-500');
+                    
+                    // Clear the form for the next entry
+                    feedbackTextarea.value = '';
 
-                calculatedRecipeHtml += `
-                    <div class="bg-gray-50 rounded-lg p-4 flex justify-between items-center">
-                        <span class="font-medium text-gray-800">${item.name}</span>
+                    setTimeout(() => {
+                        logStatus.classList.add('hidden');
+                    }, 3000);
+                } catch (e) {
+                    console.error("Error adding document: ", e);
+                    logStatus.textContent = 'Error saving log. Please try again.';
+                    logStatus.classList.remove('text-green-500');
+                    logStatus.classList.add('text-red-500');
+                }
+            }
+
+            // --- Start of Existing Calculator Logic ---
+
+            // Define the base recipe data from the provided CSV file
+            const baseRecipe = [
+                { name: 'Maltodextrin', weight: 96, carbs: 89.6, calories: 384 },
+                { name: 'Fructose', weight: 64, carbs: 64, calories: 240 },
+                { name: 'Pectin', weight: 2.5, carbs: 2.25, calories: 8.15 },
+                { name: 'Sodium Alginate', weight: 2, carbs: 0.38, calories: 4 },
+                { name: 'Water', weight: 110, carbs: 0, calories: 0 },
+            ];
+
+            // Calculate the total carbs of the base recipe for scaling
+            const baseCarbTotal = baseRecipe.reduce((sum, item) => sum + item.carbs, 0);
+
+            // Get references to DOM elements
+            const carbsInput = document.getElementById('carbs-input');
+            const calculateBtn = document.getElementById('calculate-btn');
+            const resultsArea = document.getElementById('results-area');
+            const messageArea = document.getElementById('message-area');
+
+            // Function to display messages to the user
+            function showMessage(msg, isError = true) {
+                messageArea.textContent = msg;
+                messageArea.classList.toggle('text-red-500', isError);
+                messageArea.classList.toggle('text-green-500', !isError);
+                messageArea.classList.remove('hidden');
+            }
+
+            // Function to perform the calculation and update the UI
+            function calculateAndDisplay() {
+                console.log("Calculating recipe...");
+
+                // Ensure the calculator view is visible to the user
+                showView('calculator');
+
+                const desiredCarbs = parseFloat(carbsInput.value);
+
+                // Input validation: ensure the input is a positive number
+                if (isNaN(desiredCarbs) || desiredCarbs <= 0) {
+                    showMessage('Please enter a valid number greater than 0.');
+                    resultsArea.innerHTML = '';
+                    return;
+                }
+
+                // Hide any previous messages
+                messageArea.classList.add('hidden');
+
+                // Calculate the scaling factor based on the desired total carbs
+                const scaleFactor = desiredCarbs / baseCarbTotal;
+
+                let calculatedRecipeHtml = '';
+                let totalWeight = 0;
+                let totalCarbs = 0;
+                let totalCalories = 0;
+
+                // Loop through each ingredient, calculate new values, and build the display HTML
+                baseRecipe.forEach(item => {
+                    const newWeight = item.weight * scaleFactor;
+                    const newCarbs = item.carbs * scaleFactor;
+                    const newCalories = item.calories * scaleFactor;
+
+                    totalWeight += newWeight;
+                    totalCarbs += newCarbs;
+                    totalCalories += newCalories;
+
+                    calculatedRecipeHtml += `
+                        <div class="bg-gray-50 rounded-lg p-4 flex justify-between items-center">
+                            <span class="font-medium text-gray-800">${item.name}</span>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-gray-900">${newWeight.toFixed(1)} g</p>
+                                <p class="text-xs text-gray-500">
+                                    (${newCarbs.toFixed(1)} g carbs, ${newCalories.toFixed(1)} cal)
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Add the totals section
+                const totalsHtml = `
+                    <div class="bg-blue-100 rounded-lg p-4 font-bold text-blue-800 flex justify-between items-center">
+                        <span>Total:</span>
                         <div class="text-right">
-                            <p class="text-lg font-bold text-gray-900">${newWeight.toFixed(1)} g</p>
-                            <p class="text-xs text-gray-500">
-                                (${newCarbs.toFixed(1)} g carbs, ${newCalories.toFixed(1)} cal)
+                            <p class="text-lg">${totalWeight.toFixed(1)} g</p>
+                            <p class="text-xs">
+                                (${totalCarbs.toFixed(1)} g carbs, ${totalCalories.toFixed(1)} cal)
                             </p>
                         </div>
                     </div>
                 `;
+
+                lastCalculatedCarbs = totalCarbs;
+                logCarbsInput.value = lastCalculatedCarbs.toFixed(1);
+
+                // Update the results area with all the generated HTML
+                resultsArea.innerHTML = calculatedRecipeHtml + totalsHtml;
+
+                // Add animation class to trigger the effect
+                resultsArea.classList.add('results-animation');
+
+                // Remove the class after the animation to allow it to be re-triggered
+                setTimeout(() => {
+                    resultsArea.classList.remove('results-animation');
+                }, 300);
+            }
+
+            // --- Event Listeners ---
+            
+            // Listen for clicks on the navigation buttons
+            showCalculatorBtn.addEventListener('click', () => showView('calculator'));
+            showLogsBtn.addEventListener('click', () => showView('logs'));
+
+            // Listen for clicks on the calculation button
+            calculateBtn.addEventListener('click', calculateAndDisplay);
+
+            // Listen for the Enter key on the carbs input
+            carbsInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    calculateAndDisplay();
+                }
             });
 
-            // Add the totals section
-            const totalsHtml = `
-                <div class="bg-blue-100 rounded-lg p-4 font-bold text-blue-800 flex justify-between items-center">
-                    <span>Total:</span>
-                    <div class="text-right">
-                        <p class="text-lg">${totalWeight.toFixed(1)} g</p>
-                        <p class="text-xs">
-                            (${totalCarbs.toFixed(1)} g carbs, ${totalCalories.toFixed(1)} cal)
-                        </p>
-                    </div>
-                </div>
-            `;
+            // Listen for clicks on the save log button
+            saveLogBtn.addEventListener('click', saveLog);
 
-            lastCalculatedCarbs = totalCarbs;
-            logCarbsInput.value = lastCalculatedCarbs.toFixed(1);
+            // Run the calculation on initial page load to show the default recipe
+            calculateAndDisplay();
 
-            // Update the results area with all the generated HTML
-            resultsArea.innerHTML = calculatedRecipeHtml + totalsHtml;
-
-            // Add animation class to trigger the effect
-            resultsArea.classList.add('results-animation');
-
-            // Remove the class after the animation to allow it to be re-triggered
-            setTimeout(() => {
-                resultsArea.classList.remove('results-animation');
-            }, 300);
-        }
-
-        // Event listeners for the calculator
-        calculateBtn.addEventListener('click', calculateAndDisplay);
-        carbsInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                calculateAndDisplay();
-            }
-        });
-
-        // Event listener for the new log button
-        saveLogBtn.addEventListener('click', saveLog);
-
-        // Run the calculation on initial page load to show the default recipe
-        calculateAndDisplay();
-
-        // Ensure the logbook is initially hidden and set the active button
-        showView('calculator');
-
+            // Ensure the logbook is initially hidden and set the active button
+            showView('calculator');
+        };
     </script>
     
     <!-- Custom Modal for Messages -->
