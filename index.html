@@ -4,54 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DIY Sports Gel Calculator</title>
+    <!-- Use Tailwind CSS for modern styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <style>
-        /* Custom styles for the app's font and layout */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1a202c; /* Dark background for a sleek look */
+            background-color: #1a202c;
+            background-image: linear-gradient(to bottom right, #1a202c, #2d3748);
         }
         .gel-card {
-            background-color: #2d3748; /* Darker card background */
-            color: #e2e8f0; /* Light text color */
-            border-radius: 1rem;
+            background-color: rgba(45, 55, 72, 0.7); /* Translucent background */
+            backdrop-filter: blur(8px);
+            border-radius: 1.5rem; /* More rounded corners */
             padding: 2.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 0 6px 6px rgba(0, 0, 0, 0.1);
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .result-box {
+            background-color: #2d3748;
+            border-radius: 0.75rem;
+            padding: 1rem;
         }
     </style>
+    <!-- Chart.js for the visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
+<body class="flex items-center justify-center min-h-screen p-4 text-white">
 
-    <div class="gel-card w-full max-w-lg mx-auto">
-        <h1 class="text-3xl font-bold text-center text-white mb-6">DIY Sports Gel Calculator</h1>
-
-        <div id="ingredients-container" class="space-y-4">
-            </div>
-
-        <div class="my-6 border-b border-gray-600"></div>
-
-        <div class="text-lg font-semibold space-y-2 mb-8">
-            <p class="flex justify-between items-center">
-                <span>Total Weight:</span>
-                <span id="total-weight" class="font-bold text-gray-300">0 g</span>
-            </p>
-            <p class="flex justify-between items-center">
-                <span>Total Carbs:</span>
-                <span id="total-carbs" class="font-bold text-gray-300">0 g</span>
-            </p>
-            <p class="flex justify-between items-center">
-                <span>Total Calories:</span>
-                <span id="total-calories" class="font-bold text-gray-300">0 kcal</span>
-            </p>
+    <!-- Main calculator container -->
+    <div class="gel-card w-full max-w-xl mx-auto border border-gray-700">
+        <!-- Title section with a fun icon -->
+        <div class="flex items-center justify-center space-x-4 mb-8">
+            <i class="fa-solid fa-seedling text-3xl text-green-400"></i>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-sky-500">
+                DIY Sports Gel Calculator
+            </h1>
         </div>
 
+        <!-- Input section for ingredients -->
+        <div id="ingredients-container" class="space-y-4">
+            <!-- Ingredient input fields will be dynamically added here by JavaScript -->
+        </div>
+
+        <!-- Spacer and Reset Button -->
+        <div class="my-6 flex justify-center items-center relative">
+            <hr class="flex-grow border-gray-600">
+            <button id="reset-button" class="bg-gray-700 hover:bg-gray-600 text-white p-2 rounded-full absolute transition-transform transform hover:scale-110">
+                <i class="fa-solid fa-arrows-rotate text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Results section -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center text-white font-semibold mb-8">
+            <div class="result-box flex flex-col items-center justify-center space-y-2">
+                <i class="fa-solid fa-weight-hanging text-2xl text-gray-400"></i>
+                <span>Total Weight</span>
+                <span id="total-weight" class="text-xl font-bold text-teal-300">0 g</span>
+            </div>
+            <div class="result-box flex flex-col items-center justify-center space-y-2">
+                <i class="fa-solid fa-cubes text-2xl text-gray-400"></i>
+                <span>Total Carbs</span>
+                <span id="total-carbs" class="text-xl font-bold text-sky-300">0 g</span>
+            </div>
+            <div class="result-box flex flex-col items-center justify-center space-y-2">
+                <i class="fa-solid fa-fire text-2xl text-gray-400"></i>
+                <span>Total Calories</span>
+                <span id="total-calories" class="text-xl font-bold text-orange-300">0 kcal</span>
+            </div>
+        </div>
+
+        <!-- Chart visualization -->
         <div class="mb-8">
             <h2 class="text-xl font-bold text-center text-white mb-4">Nutritional Breakdown</h2>
             <canvas id="nutrition-chart"></canvas>
         </div>
 
+        <!-- Disclaimer -->
         <p class="text-xs text-gray-400 text-center mt-4">
             Disclaimer: This calculator is for informational purposes only. Nutritional values may vary. Consult a professional before making dietary changes.
         </p>
@@ -60,31 +95,31 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
-            // The data from the CSV file, converted to a JavaScript object for easy use.
             const ingredientsData = {
-                "Maltodextrin": { weight: 96, carbs: 0.9333, calories: 4 },
-                "Fructose": { weight: 64, carbs: 1, calories: 3.75 },
-                "Pectin": { weight: 2.5, carbs: 0.9, calories: 3.26 },
-                "Sodium Alginate": { weight: 2, carbs: 0.19, calories: 2 },
+                "Maltodextrin": { weight: 96, carbs: 89.6, calories: 384 },
+                "Fructose": { weight: 64, carbs: 64, calories: 240 },
+                "Pectin": { weight: 2.5, carbs: 2.25, calories: 8.15 },
+                "Sodium Alginate": { weight: 2, carbs: 0.38, calories: 4 },
                 "Water": { weight: 110, carbs: 0, calories: 0 }
             };
+            const defaultWeights = {};
+            for (const ingredient in ingredientsData) {
+                defaultWeights[ingredient] = ingredientsData[ingredient].weight;
+            }
 
-            // Get references to key DOM elements
             const ingredientsContainer = document.getElementById('ingredients-container');
             const totalWeightSpan = document.getElementById('total-weight');
             const totalCarbsSpan = document.getElementById('total-carbs');
             const totalCaloriesSpan = document.getElementById('total-calories');
             const chartCanvas = document.getElementById('nutrition-chart');
+            const resetButton = document.getElementById('reset-button');
 
             let chartInstance = null;
-            let currentWeights = {};
+            let currentWeights = { ...defaultWeights };
 
             // Function to dynamically create input fields for each ingredient
             function createInputFields() {
                 for (const ingredient in ingredientsData) {
-                    const data = ingredientsData[ingredient];
-                    currentWeights[ingredient] = data.weight; // Initialize with default weight
-
                     const div = document.createElement('div');
                     div.className = 'flex items-center justify-between space-x-4';
 
@@ -93,16 +128,14 @@
                         <input
                             id="${ingredient}-input"
                             type="number"
-                            value="${data.weight}"
+                            value="${currentWeights[ingredient]}"
                             min="0"
-                            class="flex-grow w-1/4 p-2 text-center bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                            class="flex-grow w-1/4 p-2 text-center bg-gray-800 border-2 border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
                         />
                         <span class="text-gray-400 w-1/4 text-right">g</span>
                     `;
-
                     ingredientsContainer.appendChild(div);
 
-                    // Add an event listener to each input field
                     const inputElement = document.getElementById(`${ingredient}-input`);
                     inputElement.addEventListener('input', (event) => {
                         const newWeight = parseFloat(event.target.value) || 0;
@@ -122,53 +155,35 @@
                     const weight = currentWeights[ingredient];
                     const data = ingredientsData[ingredient];
                     
-                    // The original CSV data showed the last two columns as a percentage, which implies a ratio.
-                    // To make this a functional calculator, we'll use a standard nutritional calculation.
-                    // This assumes the values in the CSV are per 100g.
-                    // Let's re-parse the CSV data with a more logical structure.
-                    // Re-calibrated based on standard nutritional data per gram:
-                    // Maltodextrin: 4 kcal/g, 1g carbs/g
-                    // Fructose: 4 kcal/g, 1g carbs/g
-                    // Pectin: ~3 kcal/g, ~0.9g carbs/g
-                    // Sodium Alginate: ~2 kcal/g, ~0.2g carbs/g
-                    // Let's use the provided raw data instead for the most accurate calculation given the input.
-                    
-                    // The provided values seem to be totals for the initial recipe, not per gram.
-                    // Let's recalculate the per-gram values from the CSV.
-                    // Carbs per gram = Carbs(g) / Weight(g)
-                    // Calories per gram = Calories(kcal) / Weight(g)
                     const carbsPerGram = data.carbs / data.weight;
                     const caloriesPerGram = data.calories / data.weight;
 
                     totalWeight += weight;
-                    totalCarbs += weight * data.carbs;
-                    totalCalories += weight * data.calories;
+                    totalCarbs += weight * carbsPerGram;
+                    totalCalories += weight * caloriesPerGram;
                 }
 
-                // Update the UI with the new totals
                 totalWeightSpan.innerText = `${totalWeight.toFixed(1)} g`;
                 totalCarbsSpan.innerText = `${totalCarbs.toFixed(1)} g`;
                 totalCaloriesSpan.innerText = `${totalCalories.toFixed(1)} kcal`;
 
-                // Update the chart
                 const chartData = {
                     labels: ['Carbohydrates', 'Calories'],
                     datasets: [{
-                        label: 'Total Nutritional Value',
+                        label: 'Nutritional Breakdown',
                         data: [totalCarbs, totalCalories],
                         backgroundColor: [
-                            'rgba(255, 99, 132, 0.6)',
-                            'rgba(54, 162, 235, 0.6)'
+                            'rgba(14, 165, 233, 0.7)', // sky-500
+                            'rgba(251, 146, 60, 0.7)'  // orange-400
                         ],
                         borderColor: [
-                            'rgba(255, 99, 132, 1)',
-                            'rgba(54, 162, 235, 1)'
+                            '#0ea5e9',
+                            '#fb923c'
                         ],
                         borderWidth: 1
                     }]
                 };
 
-                // Create or update the chart
                 if (chartInstance) {
                     chartInstance.data = chartData;
                     chartInstance.update();
@@ -181,7 +196,10 @@
                             plugins: {
                                 legend: {
                                     labels: {
-                                        color: '#e2e8f0'
+                                        color: '#e2e8f0',
+                                        font: {
+                                            family: 'Inter',
+                                        }
                                     }
                                 }
                             }
@@ -189,10 +207,25 @@
                     });
                 }
             }
-            
+
+            // Function to reset all inputs to their default values
+            function resetInputs() {
+                currentWeights = { ...defaultWeights };
+                for (const ingredient in currentWeights) {
+                    const input = document.getElementById(`${ingredient}-input`);
+                    if (input) {
+                        input.value = currentWeights[ingredient];
+                    }
+                }
+                updateCalculations();
+            }
+
             // Initialize the app
             createInputFields();
             updateCalculations();
+
+            // Add event listener for the reset button
+            resetButton.addEventListener('click', resetInputs);
         });
     </script>
 </body>
